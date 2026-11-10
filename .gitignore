@@ -1,0 +1,10 @@
+node_modules
+dist
+.pnpm-store
+.npm-cache
+.wrangler
+.wrangler.toml
+.env
+.env.local
+*.log
+.DS_Store

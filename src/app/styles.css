@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0b0d10;
+  --color-panel: #11151b;
+  --color-panel-2: #171c24;
+  --color-line: #232a34;
+  --color-fg: #e7eaee;
+  --color-fg-dim: #8b93a1;
+  --color-fg-faint: #5b6472;
+  --color-accent: #6ea8fe;
+  --color-accent-ink: #0a1420;
+  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Microsoft YaHei",
+      sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: #2a4a7f;
+    color: #fff;
+  }
+
+  input {
+    font: inherit;
+  }
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
