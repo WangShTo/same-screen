@@ -2,6 +2,7 @@ node_modules
 dist
 .pnpm-store
 .npm-cache
+.tmp
 .wrangler
 .wrangler.toml
 .env

@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "worker": "wrangler dev --port 8787",
+    "smoke": "node scripts/smoke-room.mjs",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

@@ -241,7 +241,8 @@ meta.set('timerRunning', false); meta.set('timerEndsAt', null)
 // worker/Room.ts
 export class Room extends YServer {
   private seq = 0
-  onStart() {
+  async onStart() {
+    await super.onStart()                  // 必须！父类在这里注册 update 广播监听、调 onLoad
     this.document.on('update', (u: Uint8Array, origin: unknown) => {
       if (origin === this) return          // 忽略服务端自己产生的
       this.appendLog(u)
@@ -325,6 +326,8 @@ export default {
   }
 } satisfies ExportedHandler<Env>
 ```
+
+> 路由规则（实测）：`/parties/<绑定名的 kebab-case>/<房间码>`。绑定叫 `Main`，所以客户端连 `/parties/main/a2b3c4`；写成 `/parties/Main/...` 会直接 400 `does not match any server namespace`。
 
 **前端和 Worker 同一个部署单元**：`/parties/*` 走 WebSocket，其余走 assets。同域 → 零 CORS、零环境变量、一个链接。
 

@@ -46,8 +46,11 @@ npm run worker                   # 另开一个终端：实时服务 http://127.
 ```bash
 npm run typecheck   # 三个 tsconfig 全过才算过（app / vite 配置 / worker）
 npm run build       # typecheck + vite build → dist/
+npm run smoke       # 房间协议冒烟：双向同步 + 后进拉历史 + 断线重连
 npm run deploy      # wrangler deploy（前端和实时服务一起发）
 ```
+
+`npm run smoke` 要先起 `npm run worker`，默认连 `ws://127.0.0.1:8787/parties/main/smoke01`，可用 `ROOM_WS=` 换地址（例如 `ws://localhost:5173/parties/main/x` 走 Vite 代理）。
 
 ### 为什么用 npm 而不是 pnpm
 
@@ -63,6 +66,12 @@ NODE_OPTIONS="--require ./scripts/exec-shim.cjs" npx vite --port 5173
 
 普通开发机不需要它，`npm run dev` 也不引用它。
 
+同一类问题：agent 沙箱里 `wrangler dev` 起不来时会报 `CreateDirectory: #5 拒绝访问; path = miniflare-email-store`，因为 workerd 在会话临时目录建不了子目录。把 `TEMP`/`TMP` 指到工作区内即可（普通终端不需要）：
+
+```bash
+mkdir -p .tmp && TEMP="$PWD/.tmp" TMP="$PWD/.tmp" npm run worker
+```
+
 ## 部署
 
 ```bash
@@ -72,7 +81,9 @@ npm run deploy         # 产出 https://same-screen.<你的子域>.workers.dev
 
 `wrangler.jsonc` 已经把三件事配好了：Worker 入口、`Main` Durable Object 绑定（`Room` 类）、`dist/` 作为静态资源并开启 SPA 回落。
 
-**未验证**：本机 agent 环境里 workerd 启动时报 `CreateDirectory: #5 拒绝访问; path = miniflare-email-store`，`wrangler dev` 没能跑起来；`wrangler login` 和 `deploy` 也还没试过。需要在普通终端里各跑一次确认。
+**已验证**：`wrangler deploy --temporary`（不登录、临时预览账号）成功发出过一次——3 个静态资源 319 KiB（gzip 65.6 KiB）、Worker 启动 18 ms，返回 `https://same-screen.<临时子域>.workers.dev`。
+
+**未验证**：正式 `wrangler login` + `npm run deploy`（需要你自己的 Cloudflare 账号）。另外这台机器上 `*.workers.dev` 的 DNS 被解析到了错误 IP、TCP 连接超时，**公网可访问性没法在本机确认**；国内环境建议部署后绑自定义域名再验，不要以 workers.dev 直连为准。
 
 ## 目录
 
@@ -126,7 +137,7 @@ scripts/
 
 | 天 | 内容 | 状态 |
 | --- | --- | --- |
-| Day 0 | 脚手架、路由、首页创建/加入、房间壳、类型与构建 | 完成（worker 未验证） |
+| Day 0 | 脚手架、路由、首页创建/加入、房间壳、房间协议冒烟、试部署 | 完成 |
 | Day 1 | 前端打磨、错误/空状态、分享与短链 | 未开始 |
 | Day 2 | CodeMirror + Y.Text 同步、成员列表、连接状态 | 未开始 |
 | Day 3 | Konva 画板（笔/矩形/箭头/文字/橡皮）+ 撤销重做 | 未开始 |
