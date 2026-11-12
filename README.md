@@ -2,7 +2,7 @@
 
 一个链接，两个人远程讲代码：一起改代码、顺手画图、计时，讲完能导出和回放。
 
-作品集项目，7 天 MVP。当前进度：**Day 0 脚手架**（详见下方「进度」）。
+作品集项目，7 天 MVP。当前进度：**Day 2 代码同步**（详见下方「进度」）。
 
 ## 现在能做什么
 
@@ -10,11 +10,16 @@
 | --- | --- |
 | 进首页 | 填昵称、换颜色、创建房间跳 `/room/:code` |
 | 用房间码加入 | 6 位码校验（去掉了容易看错的 `0/1/i/l/o`） |
-| 打开房间壳 | 顶栏、可折叠题目面板、代码/画板 Tab、底部状态栏 |
+| 两人同房写代码 | CodeMirror 6 + `Y.Text`，A 打字 B 立刻看到；Java / Python / JavaScript 切换两端同步 |
+| 共享笔记 | 左侧面板也是 CodeMirror，同样走 Yjs |
+| 在线成员 | Awareness 里的昵称/颜色，顶栏头像最多 3 个 + `+N` |
+| 连接状态 | 顶栏与底部都显示真实状态（连接中 / 已连接 / 已断开），断线自动重连 |
+| 撤销重做 | `Y.UndoManager` 只撤自己的操作，底部按钮按栈深度启用 |
+| 首次进房有骨架 | Durable Object 在第一次打开时种入当前语言的模板代码 |
 | 分享 | 复制房间链接，`/r/:code` 短链会跳到房间 |
 | 错码兜底 | 房间码不合法时给提示页，不是白屏 |
 
-**还不能**：代码同步、画板同步、真计时器、多人光标、回放。这些是 Day 2–5 的事。
+**还不能**：画板同步（Day 3）、多人光标（Day 4）、真计时器（Day 4）、回放（Day 5）。
 
 ## 技术栈
 
@@ -91,8 +96,8 @@ npm run deploy         # 产出 https://same-screen.<你的子域>.workers.dev
 src/
   app/          router、providers、全局样式
   pages/        Landing、Room、Replay
-  features/     room / editor / canvas / presence / replay / timer（Day 2 起填）
-  lib/          roomCode、identity、env（Yjs 连接在 Day 2 加）
+  features/     room（会话/连接）· editor（CodeMirror）· presence（在线成员）· canvas/replay 待填
+  lib/          roomCode、identity、env、ydoc（Y.Doc + UndoManager 装配）、provider（YProvider）
   components/   Button 等基础组件
 worker/
   index.ts      入口：/parties 交给 PartyServer，其余交给静态资源
@@ -138,8 +143,8 @@ scripts/
 | 天 | 内容 | 状态 |
 | --- | --- | --- |
 | Day 0 | 脚手架、路由、首页创建/加入、房间壳、房间协议冒烟、试部署 | 完成 |
-| Day 1 | 前端打磨、错误/空状态、分享与短链 | 未开始 |
-| Day 2 | CodeMirror + Y.Text 同步、成员列表、连接状态 | 未开始 |
+| Day 1 | 前端打磨、错误/空状态、分享与短链 | 完成（先做了借鉴调研的两条：集中装配 Y.Doc、awareness 节流 50ms） |
+| Day 2 | CodeMirror + Y.Text 同步、成员列表、连接状态 | 完成 |
 | Day 3 | Konva 画板（笔/矩形/箭头/文字/橡皮）+ 撤销重做 | 未开始 |
 | Day 4 | 多人光标、计时器、响应式 | 未开始 |
 | Day 5 | 事件日志 + 快照 + 回放页 | 未开始 |

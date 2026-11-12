@@ -69,3 +69,38 @@
 
 - 多端真实撤销：需要两台客户端连同一个房间，Day 2 之后验。
 - `AWARENESS_THROTTLE_MS` 只是常量，光标代码还没写，没跑过。
+
+## Day 2 · 代码同步、成员列表、连接状态（2026-11-12）
+
+### 做了什么
+
+- `src/features/editor/`：`languages.ts`（java/python/javascript）、`theme.ts`（深色主题 + 语法配色，颜色复用 `--color-*`，不引 one-dark）、`extensions.ts`（**手写扩展列表，不含 `history()`**，含 `yCollab` + `yUndoManagerKeymap`）、`CodeEditor.tsx`（`Compartment` 切语言，`updateListener` 报行列）。
+- `src/lib/provider.ts`：`createRoomProvider(doc, room)`，主机名取 `window.location.host`，party 段固定 `main`（对应绑定名 `Main` 的 kebab-case）。
+- `src/features/presence/usePresence.ts`：从 Awareness 读 `user.name/color`，订阅 `change`/`update` 与 provider `status`，产出 `{status, peers}`。
+- `src/features/room/useRoomSession.ts`：一个房间一个 Doc/Provider/UndoManager；`meta.lang` 双向同步；撤销栈深度驱动底部按钮。
+- `src/pages/Room.tsx`：顶栏真实连接状态 + 成员头像；左面板换成共享笔记编辑器；代码编辑器常驻（切 Tab 只 `hidden`，不重建丢光标）；底部语言下拉（两端同步）+ 行列 + 同步状态 + 撤销/重做。
+- `worker/starter.ts` + `worker/Room.ts`：DO 首次打开房间时种入 Java 骨架；判重用 **DO storage 的一次性标记**，不是「doc 是否为空」。
+- `scripts/room-peek.mjs`：不依赖浏览器读房间真实内容（`ROOM=xxx node scripts/room-peek.mjs`），也可从外部客户端追加一行。
+
+### 已验证
+
+- `npm run typecheck` exit 0；`npm run build` 成功（2236 modules，JS 989.68 kB / gzip 332.23 kB）。
+- 浏览器 → 服务端：在编辑器里打字，`room-peek` 读到的 `code` 完全一致（含正确换行）。
+- 服务端 → 浏览器：外部客户端追加 `REMOTE_MARKER_123`，页面里出现独立一行。
+- 语言同步：页面把 `Java` 切到 `Python`，`room-peek` 读到 `meta.lang = "python"`。
+- 撤销隔离：外部客户端写入标记后，页面里 Ctrl+Z 只撤掉自己刚输入的 `int y = 7;`，远端标记仍在。
+- 断线：杀掉 wrangler 后页面显示「连接中」、代码不丢；重启后自动回到「已连接 / 已同步」，内容保留。
+- 种骨架只发生一次：重启 DO 后日志没有再次 `seeded`，房间仍是 149 字节一份骨架（不再重复）。
+
+### 未验证
+
+- 两个真实浏览器窗口同时打开（本机只跑了一个浏览器 + 一个协议客户端）。
+- 多人光标：`yCollab` 的远端选区样式只在单端渲染过，没有第二个人出现光标。
+- 移动端只看了布局，没有真的用手机打字。
+- 首屏 JS 989 kB（gzip 332 kB），还没做代码分割。
+
+### 踩过的坑
+
+- **`YProvider` 是默认导出**（`export { YProvider as default }`），写成 `import { YProvider }` 会报 TS2614。
+- **种骨架不能用「doc 为空」判重**：DO 重启时 `onLoad` 可能拿到空状态，而客户端手里还留着上次内容，一合并就出现两份骨架（实测房间从 1 份涨到 3 份）。改成 DO storage 里的一次性 `seeded` 标记，重启不再种。
+- `keyboard.type` 里带 `\n` 不会产生换行，CodeMirror 里要单独按 Enter；这是自动化的问题，不是编辑器的问题。

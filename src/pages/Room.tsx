@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import {
   Code2,
@@ -14,50 +14,87 @@ import { Button } from '@/components/Button'
 import { isValidRoomCode } from '@/lib/roomCode'
 import { loadIdentity } from '@/lib/identity'
 import { copyText, shareUrl } from '@/lib/env'
-import { createRoomDoc } from '@/lib/ydoc'
+import { LANGS, langLabel, type Lang } from '@/features/editor/languages'
+import { CodeEditor } from '@/features/editor/CodeEditor'
+import { usePresence, type ConnStatus } from '@/features/presence/usePresence'
+import { useRoomSession } from '@/features/room/useRoomSession'
+import type { Peer } from '@/features/presence/usePresence'
 
 type Tab = 'code' | 'board'
 
-function StatusDot() {
+const STATUS_TEXT: Record<ConnStatus, string> = {
+  connected: '已连接',
+  connecting: '连接中',
+  disconnected: '已断开',
+}
+
+const STATUS_COLOR: Record<ConnStatus, string> = {
+  connected: '#7ee2a8',
+  connecting: '#6ea8fe',
+  disconnected: '#5b6472',
+}
+
+function InvalidRoom() {
   return (
-    <div className="flex shrink-0 items-center gap-1.5 text-xs text-fg-dim" title="未连接">
-      <span className="h-1.5 w-1.5 rounded-full bg-fg-faint" />
-      <span className="hidden sm:inline">未连接</span>
+    <main className="grid min-h-dvh place-items-center px-6">
+      <div className="max-w-sm text-center">
+        <p className="font-mono text-sm text-fg-faint">room</p>
+        <h1 className="mt-2 text-lg font-medium">房间码不对</h1>
+        <p className="mt-2 text-sm text-fg-dim">房间码是 6 位字母数字，检查一下链接。</p>
+        <Link
+          to="/"
+          className="mt-6 inline-block rounded-lg border border-line px-4 py-2 text-sm text-fg-dim hover:text-fg"
+        >
+          回首页
+        </Link>
+      </div>
+    </main>
+  )
+}
+
+function StatusDot({ status }: { status: ConnStatus }) {
+  return (
+    <div className="flex shrink-0 items-center gap-1.5 text-xs text-fg-dim" title={STATUS_TEXT[status]}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status] }} />
+      <span className="hidden sm:inline">{STATUS_TEXT[status]}</span>
     </div>
   )
 }
 
-export default function Room() {
-  const { id = '' } = useParams()
+function Avatar({ peer }: { peer: Peer }) {
+  return (
+    <span
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-medium ring-1 ring-ink"
+      style={{ background: `${peer.color}26`, color: peer.color }}
+      title={peer.self ? `${peer.name}（你）` : peer.name}
+    >
+      {peer.name.slice(0, 1).toUpperCase()}
+    </span>
+  )
+}
+
+function RoomWorkspace({ roomId }: { roomId: string }) {
   const [identity] = useState(loadIdentity)
-  const [bundle] = useState(createRoomDoc)
   const [tab, setTab] = useState<Tab>('code')
   const [notesOpen, setNotesOpen] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [cursor, setCursor] = useState({ line: 1, column: 1 })
 
-  if (!isValidRoomCode(id)) {
-    return (
-      <main className="grid min-h-dvh place-items-center px-6">
-        <div className="max-w-sm text-center">
-          <p className="font-mono text-sm text-fg-faint">room</p>
-          <h1 className="mt-2 text-lg font-medium">房间码不对</h1>
-          <p className="mt-2 text-sm text-fg-dim">房间码是 6 位字母数字，检查一下链接。</p>
-          <Link
-            to="/"
-            className="mt-6 inline-block rounded-lg border border-line px-4 py-2 text-sm text-fg-dim hover:text-fg"
-          >
-            回首页
-          </Link>
-        </div>
-      </main>
-    )
-  }
+  const session = useRoomSession(roomId, identity)
+  const { status, peers } = usePresence(session.provider)
+
+  const code = useMemo(() => session.doc.getText('code'), [session.doc])
+  const notes = useMemo(() => session.doc.getText('notes'), [session.doc])
+  const awareness = session.provider?.awareness ?? null
 
   async function handleShare() {
-    const ok = await copyText(shareUrl(id))
+    const ok = await copyText(shareUrl(roomId))
     setCopied(ok)
     window.setTimeout(() => setCopied(false), 1600)
   }
+
+  const visiblePeers = peers.slice(0, 3)
+  const morePeers = peers.length - visiblePeers.length
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-ink">
@@ -76,7 +113,7 @@ export default function Room() {
         <div className="flex min-w-0 items-center gap-2">
           <span className="hidden truncate text-sm text-fg-dim sm:inline">未命名房间</span>
           <span className="shrink-0 rounded border border-line bg-panel px-1.5 py-0.5 font-mono text-[11px] tracking-wider text-fg-faint">
-            {id}
+            {roomId}
           </span>
         </div>
 
@@ -88,16 +125,17 @@ export default function Room() {
             <span className="font-mono text-sm tabular-nums text-fg-dim">45:00</span>
           </div>
 
-          <StatusDot />
+          <StatusDot status={status} />
 
-          <div className="flex items-center">
-            <span
-              className="grid h-6 w-6 place-items-center rounded-full text-[10px] font-medium"
-              style={{ background: `${identity.color}22`, color: identity.color }}
-              title={identity.name || '你'}
-            >
-              {(identity.name || '你').slice(0, 1)}
-            </span>
+          <div className="flex items-center -space-x-1.5">
+            {visiblePeers.map((peer) => (
+              <Avatar key={peer.clientId} peer={peer} />
+            ))}
+            {morePeers > 0 && (
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-panel-2 text-[10px] text-fg-dim ring-1 ring-ink">
+                +{morePeers}
+              </span>
+            )}
           </div>
 
           <Button variant="outline" onClick={handleShare} className="h-8 px-2.5 py-1">
@@ -115,19 +153,27 @@ export default function Room() {
       <div className="flex min-h-0 flex-1">
         {/* 左侧笔记 */}
         <aside
-          className={`hidden shrink-0 border-r border-line md:block ${
+          className={`hidden shrink-0 flex-col border-r border-line md:flex ${
             notesOpen ? 'md:w-60' : 'md:w-0 md:overflow-hidden md:border-r-0'
           }`}
         >
-          <div className="flex h-10 items-center justify-between border-b border-line px-3">
+          <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-3">
             <span className="text-xs font-medium text-fg-dim">题目 / 笔记</span>
+            <span className="text-[10px] text-fg-faint">两端同步</span>
           </div>
-          <div className="p-3">
-            <div className="rounded-lg border border-dashed border-line p-3 text-xs leading-relaxed text-fg-faint">
-              共享笔记位
-              <br />
-              <span className="text-fg-faint/70">Day 2 接入 Y.Text</span>
-            </div>
+          <div className="min-h-0 flex-1">
+            {awareness ? (
+              <CodeEditor
+                ytext={notes}
+                awareness={awareness}
+                undoManager={session.undoManager}
+                language="javascript"
+                compact
+                placeholderText="把题目粘在这里，两个人一起看"
+              />
+            ) : (
+              <p className="p-3 text-xs text-fg-faint">连接中…</p>
+            )}
           </div>
         </aside>
 
@@ -161,40 +207,94 @@ export default function Room() {
                 {label}
               </button>
             ))}
+
+            <span className="ml-auto pr-1 text-[11px] text-fg-faint">
+              {status === 'connected' ? `${peers.length} 人在线` : STATUS_TEXT[status]}
+            </span>
           </div>
 
           <div className="relative min-h-0 flex-1">
-            <div className="absolute inset-0 grid place-items-center p-6">
-              <div className="w-full max-w-sm rounded-xl border border-dashed border-line/80 p-8 text-center">
-                <p className="text-sm text-fg-dim">
-                  {tab === 'code' ? '共享编辑器' : '共享画板'}
-                </p>
-                <p className="mt-1.5 text-xs text-fg-faint">
-                  {tab === 'code' ? 'CodeMirror + Yjs · Day 2' : 'Konva + Y.Map · Day 3'}
-                </p>
-              </div>
+            {/* 代码：常驻，切 Tab 只隐藏，避免重建编辑器丢光标 */}
+            <div className={`absolute inset-0 ${tab === 'code' ? '' : 'hidden'}`}>
+              {awareness ? (
+                <CodeEditor
+                  ytext={code}
+                  awareness={awareness}
+                  undoManager={session.undoManager}
+                  language={session.lang}
+                  placeholderText="开始写代码，对面能实时看到"
+                  onCursor={(line, column) => setCursor({ line, column })}
+                />
+              ) : (
+                <div className="grid h-full place-items-center text-xs text-fg-faint">连接房间中…</div>
+              )}
             </div>
+
+            {tab === 'board' && (
+              <div className="absolute inset-0 grid place-items-center p-6">
+                <div className="w-full max-w-sm rounded-xl border border-dashed border-line/80 p-8 text-center">
+                  <p className="text-sm text-fg-dim">共享画板</p>
+                  <p className="mt-1.5 text-xs text-fg-faint">Konva + Y.Map · Day 3</p>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </div>
 
       {/* 底部状态栏 */}
       <footer className="flex h-8 shrink-0 items-center gap-3 border-t border-line px-3 text-[11px] text-fg-faint">
-        <span className="font-mono">Java</span>
-        <span className="hidden sm:inline">行 1, 列 1</span>
-        <span className="ml-auto flex items-center gap-1.5" title={`共享文档已创建 · clientID ${bundle.doc.clientID}`}>
-          <span className="h-1.5 w-1.5 rounded-full bg-fg-faint" />
-          待连接
+        <select
+          value={session.lang}
+          onChange={(event) => {
+            const next = LANGS.find((item) => item.id === event.target.value)
+            if (next) session.setLang(next.id as Lang)
+          }}
+          className="-ml-1 appearance-none rounded border border-transparent bg-transparent py-0.5 pl-1 pr-4 font-mono text-[11px] text-fg-dim hover:border-line hover:bg-panel focus:outline-none"
+          title="切换语言（两端同步）"
+        >
+          {LANGS.map((item) => (
+            <option key={item.id} value={item.id} className="bg-panel text-fg">
+              {langLabel(item.id)}
+            </option>
+          ))}
+        </select>
+        <span className="font-mono tabular-nums">
+          行 {cursor.line}, 列 {cursor.column}
         </span>
+
+        <span className="ml-auto flex items-center gap-1.5" title="Yjs 同步状态">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: STATUS_COLOR[status] }} />
+          {status === 'connected' ? '已同步' : STATUS_TEXT[status]}
+        </span>
+
         <span className="flex items-center gap-1">
-          <button type="button" disabled className="grid h-5 w-5 place-items-center rounded text-fg-faint/50">
+          <button
+            type="button"
+            disabled={session.undoState.undo === 0}
+            onClick={() => session.undoManager.undo()}
+            className="grid h-5 w-5 place-items-center rounded text-fg-faint enabled:hover:bg-panel-2 enabled:hover:text-fg disabled:text-fg-faint/40"
+            title={`撤销（${session.undoState.undo}）`}
+          >
             <Undo2 className="h-3 w-3" />
           </button>
-          <button type="button" disabled className="grid h-5 w-5 place-items-center rounded text-fg-faint/50">
+          <button
+            type="button"
+            disabled={session.undoState.redo === 0}
+            onClick={() => session.undoManager.redo()}
+            className="grid h-5 w-5 place-items-center rounded text-fg-faint enabled:hover:bg-panel-2 enabled:hover:text-fg disabled:text-fg-faint/40"
+            title={`重做（${session.undoState.redo}）`}
+          >
             <Redo2 className="h-3 w-3" />
           </button>
         </span>
       </footer>
     </main>
   )
+}
+
+export default function Room() {
+  const { id = '' } = useParams()
+  if (!isValidRoomCode(id)) return <InvalidRoom />
+  return <RoomWorkspace roomId={id} />
 }
