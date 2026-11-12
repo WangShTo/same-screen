@@ -186,9 +186,11 @@ export function buildExtensions(ytext: Y.Text, awareness, undoManager) {
    重建会丢 yCollab 绑定和光标。语言写进 `meta.lang`，两端同步切换。
 3. `undoManager` 的 scope 是 `[code, notes, shapes]`，`trackedOrigins` 只放本地 origin，且每次本地事务都要带这个 origin：
    ```ts
-   const localOrigin = Symbol('local')
-   ydoc.transact(() => { /* ... */ }, localOrigin)
+   import { withLocalOrigin } from '@/lib/ydoc'
+   withLocalOrigin(ydoc, () => { /* ... */ })   // 内部就是 ydoc.transact(fn, LOCAL_ORIGIN)
    ```
+   文档只有 `src/lib/ydoc.ts` 的 `createRoomDoc()` 一个装配点；回放页用 `createReplayDoc()`（空文档，不装 UndoManager）。
+   CodeMirror 的输入**不用手动加 origin**：y-codemirror.next 的 `YUndoManagerPlugin` 挂载时自己 `addTrackedOrigin(syncConf)`，卸载时移除（`node_modules/y-codemirror.next/src/y-undomanager.js:98`）。
 
 ### 5.3 笔记：也用 CodeMirror
 
@@ -214,7 +216,7 @@ pointerup    → shapes.set(id, {type:'pen', points, color, width, userId})
 
 ```ts
 // 进入画板时
-awareness.setLocalStateField('board', { x, y })   // 40ms 节流
+awareness.setLocalStateField('board', { x, y })   // AWARENESS_THROTTLE_MS = 50（src/lib/ydoc.ts）
 // 离开画板/切到代码 Tab
 awareness.setLocalStateField('board', null)        // 必须置 null，否则光标卡在原地
 ```

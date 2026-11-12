@@ -46,3 +46,26 @@
 - `wrangler dev` 在沙箱里报 `CreateDirectory: #5 拒绝访问; path = miniflare-email-store`：把 `TEMP`/`TMP` 指到工作区内（`.tmp`）就正常，普通终端不需要。
 - **PartyServer 的 party 段是绑定名的 kebab-case**：绑定叫 `Main`，URL 必须是 `/parties/main/:room`；写成 `Main` 直接 400 `does not match any server namespace`。
 - **`YServer.onStart` 必须 `await super.onStart()`**：握手能成功、日志也正常，但 update 的广播监听是在父类 onStart 里注册的，漏了它就会出现「连上了、谁也收不到谁的内容」——这个坑静默失败，最难查。
+
+## Day 1 前置 · 借鉴调研落地（2026-11-12）
+
+调研记录见 `docs/REFERENCE.md`。只吸收两条，不改范围：
+
+### 做了什么
+
+- 新增 `src/lib/ydoc.ts`：`createRoomDoc()`（`Y.Doc` + `Y.UndoManager`，scope `[code, notes, shapes]`，`trackedOrigins` 只放 `LOCAL_ORIGIN`）、`createReplayDoc()`（空文档、不装 UndoManager）、`withLocalOrigin()`、`LOCAL_ORIGIN`、`AWARENESS_THROTTLE_MS = 50`。
+- `Room.tsx` 用 `useState(createRoomDoc)` 建文档，底部状态栏显示「待连接」，`title` 里带真实 `clientID`。
+- `ARCHITECTURE.md`：awareness 40ms → 50ms 并指向常量；5.2 第 3 条补上「CodeMirror 输入不用手动加 origin，y-codemirror.next 挂载时自己 `addTrackedOrigin(syncConf)`」（`node_modules/y-codemirror.next/src/y-undomanager.js:98`）。
+
+### 已验证
+
+- `npm run typecheck` exit 0；`npm run build` 成功（2197 modules，JS 403.80 kB / gzip 126.78 kB，比接入 Yjs 前 +68 kB）。
+- 页面运行时真的建了文档：`footer` 文案 `Java / 行 1, 列 1 / 待连接`，`title="共享文档已创建 · clientID 1220347539"`。
+- 撤销语义在浏览器里实测（Vite 直接 `import('/src/lib/ydoc.ts')`）：
+  - `withLocalOrigin` 写入 `hello` → `undo()` 后为 `""` → `redo()` 后回到 `hello`；
+  - 再插入一笔**不带 origin** 的 `[remote]`（模拟别人改的），`undo()` 把 `hello` 撤掉，`[remote]` 保留 → 只撤自己的。
+
+### 未验证
+
+- 多端真实撤销：需要两台客户端连同一个房间，Day 2 之后验。
+- `AWARENESS_THROTTLE_MS` 只是常量，光标代码还没写，没跑过。

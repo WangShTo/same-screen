@@ -14,6 +14,7 @@ import { Button } from '@/components/Button'
 import { isValidRoomCode } from '@/lib/roomCode'
 import { loadIdentity } from '@/lib/identity'
 import { copyText, shareUrl } from '@/lib/env'
+import { createRoomDoc } from '@/lib/ydoc'
 
 type Tab = 'code' | 'board'
 
@@ -29,6 +30,7 @@ function StatusDot() {
 export default function Room() {
   const { id = '' } = useParams()
   const [identity] = useState(loadIdentity)
+  const [bundle] = useState(createRoomDoc)
   const [tab, setTab] = useState<Tab>('code')
   const [notesOpen, setNotesOpen] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -180,9 +182,9 @@ export default function Room() {
       <footer className="flex h-8 shrink-0 items-center gap-3 border-t border-line px-3 text-[11px] text-fg-faint">
         <span className="font-mono">Java</span>
         <span className="hidden sm:inline">行 1, 列 1</span>
-        <span className="ml-auto flex items-center gap-1.5">
+        <span className="ml-auto flex items-center gap-1.5" title={`共享文档已创建 · clientID ${bundle.doc.clientID}`}>
           <span className="h-1.5 w-1.5 rounded-full bg-fg-faint" />
-          同步未接入
+          待连接
         </span>
         <span className="flex items-center gap-1">
           <button type="button" disabled className="grid h-5 w-5 place-items-center rounded text-fg-faint/50">
