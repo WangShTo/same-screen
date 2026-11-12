@@ -123,3 +123,30 @@
 **未验证**
 - 系统「另存为」对话框里真正点保存（自动化会卡在原生弹窗，未点）。
 - Safari / Firefox（只有 Chromium 的 File System Access API；这两个走下载兜底，未实机）。
+
+## Day 3 · Konva 画板
+
+**做了什么**
+- `src/features/canvas/`：`types.ts`（Shape/Tool/调色板/线宽/`shapeId()`/`isShape()`）、`store.ts`（zustand 只放工具/颜色/线宽）、`Whiteboard.tsx`（Konva Stage，`Y.Map('shapes')` 的 `observe` 驱动重绘）、`ShapeNode.tsx`（pen/rect/arrow/text 四种渲染）、`CanvasToolbar.tsx`（左上浮层工具栏）、`snapshot.ts`（导出 PNG 用的 stage 快照注册表）。
+- 绘制语义：笔本地实时画、**抬笔**才写 `Y.Map`（一次 `withLocalOrigin` + `shapes.set` = 一次事务 = 一个撤销项）；矩形/箭头本地预览、松手提交；文字点画布出输入框（Enter 提交 / Esc 取消 / 失焦提交非空值）；橡皮用 `stage.getIntersection()` 命中图元再整条删除。
+- 快捷键 B/R/A/T/E；Ctrl/⌘+Z 撤销、Ctrl/⌘+Shift+Z 重做（与底部按钮共用同一个 `Y.UndoManager`）。
+- 导出菜单新增 `.PNG 画板截图`（2 倍清晰度），只在画板 Tab 挂载后出现。
+- `scripts/add-shape.mjs`：从外部客户端往房间塞一个图元，用来验证撤销隔离。
+
+**已验证**
+- `npm run typecheck` exit 0；`npm run build` 通过（JS 约 1.0 MB / gzip 约 335 kB）。
+- 画笔、矩形、箭头、文字四种都能画上，并经 `ROOM=a2b3c4 node scripts/room-peek.mjs` 在服务端读到对应图元（text「这里有个 bug」、pen、arrow，坐标正确）。
+- 橡皮点中矩形后图元数 3 → 2，服务端重读确认删除已同步。
+- 撤销隔离：外部客户端（`add-shape.mjs`）塞进来的红色矩形，在浏览器里点撤销后**仍然存在**，只撤掉本地刚画的笔迹；重做后本地笔迹回来（服务端图元数 1 pen → 2 pen）。
+- `canvasPngDataUrl()` 返回 103 KB 的 `data:image/png;base64,…`。
+- 两台客户端（同一浏览器的两个标签页）能在顶栏看到 2 个头像；一个标签页画的图元另一个能看到。
+- 390×844 下画板工具栏不横向滚动（颜色/线宽在小屏折叠），画布占满剩余高度。
+
+**未验证**
+- Ctrl+Z 键盘撤销：代码已接 `undoManager.undo()`，但自动化键盘事件在当前 ego 会话里没有生效，**只在代码层面确认，未在浏览器里按出来**。
+- 真机手指绘制（只有 CDP 移动视口模拟，没有触屏设备）。
+- 200 图元性能（Day 7 做）。
+
+**踩坑**
+- 文字工具点画布不出输入框：`pointerdown` 没 `preventDefault()`，鼠标默认焦点转移把刚 `focus()` 的 input 抢走，`onBlur` 又用空值关掉。修法：`event.evt.preventDefault()` + `requestAnimationFrame` 里 focus。
+- ego 的 `page.evaluate`/`page.goto` 在切过移动端模拟后偶发挂死（>120s），`ego_screenshot` 仍正常；截图要用工具级接口，别塞进脚本。

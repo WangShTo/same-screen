@@ -18,6 +18,7 @@ import { LANGS, langLabel, type Lang } from '@/features/editor/languages'
 import { CodeEditor } from '@/features/editor/CodeEditor'
 import { usePresence, type ConnStatus } from '@/features/presence/usePresence'
 import { useRoomSession } from '@/features/room/useRoomSession'
+import { Whiteboard } from '@/features/canvas/Whiteboard'
 import { ExportMenu } from '@/features/export/ExportMenu'
 import type { Peer } from '@/features/presence/usePresence'
 
@@ -222,11 +223,8 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
             </div>
 
             {tab === 'board' && (
-              <div className="absolute inset-0 grid place-items-center p-6">
-                <div className="w-full max-w-sm rounded-xl border border-dashed border-line/80 p-8 text-center">
-                  <p className="text-sm text-fg-dim">共享画板</p>
-                  <p className="mt-1.5 text-xs text-fg-faint">Konva + Y.Map · Day 3</p>
-                </div>
+              <div className="absolute inset-0">
+                <Whiteboard ydoc={session.doc} userId={identity.id} undoManager={session.undoManager} />
               </div>
             )}
           </div>

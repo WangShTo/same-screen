@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, Download } from 'lucide-react'
 import type * as Y from 'yjs'
 import type { Lang } from '@/features/editor/languages'
+import { canvasPngDataUrl, hasCanvasSnapshot } from '@/features/canvas/snapshot'
 import { EXPORT_FORMATS, fileName, formatExt } from './formats'
-import { saveTextFile, type SaveResult } from './save'
+import { dataUrlToBlob, saveBlobFile, saveTextFile, type SaveResult } from './save'
 
 type Props = {
   doc: Y.Doc
@@ -18,9 +19,12 @@ const RESULT_TEXT: Record<SaveResult, string> = {
   failed: '保存失败',
 }
 
+const PNG_EXT = 'png'
+
 export function ExportMenu({ doc, roomId, lang }: Props) {
   const [open, setOpen] = useState(false)
   const [note, setNote] = useState('')
+  const [pngReady, setPngReady] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,26 +43,53 @@ export function ExportMenu({ doc, roomId, lang }: Props) {
     }
   }, [open])
 
-  async function handlePick(formatId: string) {
-    const format = EXPORT_FORMATS.find((item) => item.id === formatId)
-    if (!format) return
-    setOpen(false)
-    const ext = formatExt(format, lang)
-    const result = await saveTextFile({
-      suggestedName: fileName({ doc, roomId, lang }, ext),
-      mime: format.mime,
-      ext,
-      text: format.build({ doc, roomId, lang }),
-    })
+  function showNote(result: SaveResult) {
     setNote(RESULT_TEXT[result])
     window.setTimeout(() => setNote(''), 1800)
+  }
+
+  async function handlePick(formatId: string) {
+    setOpen(false)
+    const stamp = { doc, roomId, lang }
+
+    if (formatId === 'png') {
+      const dataUrl = canvasPngDataUrl()
+      if (!dataUrl) {
+        showNote('failed')
+        return
+      }
+      showNote(
+        await saveBlobFile({
+          suggestedName: fileName(stamp, PNG_EXT),
+          mime: 'image/png',
+          ext: PNG_EXT,
+          blob: dataUrlToBlob(dataUrl),
+        }),
+      )
+      return
+    }
+
+    const format = EXPORT_FORMATS.find((item) => item.id === formatId)
+    if (!format) return
+    const ext = formatExt(format, lang)
+    showNote(
+      await saveTextFile({
+        suggestedName: fileName(stamp, ext),
+        mime: format.mime,
+        ext,
+        text: format.build(stamp),
+      }),
+    )
   }
 
   return (
     <div ref={wrapRef} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          setPngReady(hasCanvasSnapshot())
+          setOpen((value) => !value)
+        }}
         className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-transparent px-2.5 text-xs text-fg-dim transition-colors hover:border-fg-faint/50 hover:text-fg"
         title="导出房间内容"
       >
@@ -69,6 +100,20 @@ export function ExportMenu({ doc, roomId, lang }: Props) {
 
       {open && (
         <div className="absolute right-0 top-10 z-30 w-64 overflow-hidden rounded-xl border border-line bg-panel p-1 shadow-2xl shadow-black/40">
+          {pngReady && (
+            <button
+              type="button"
+              onClick={() => void handlePick('png')}
+              className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-panel-2"
+            >
+              <span className="mt-0.5 font-mono text-[10px] uppercase text-fg-faint">.PNG</span>
+              <span className="min-w-0">
+                <span className="block text-xs text-fg">画板截图</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-fg-faint">当前画板，2 倍清晰度</span>
+              </span>
+            </button>
+          )}
+
           {EXPORT_FORMATS.map((format) => (
             <button
               key={format.id}

@@ -35,12 +35,27 @@ export type SaveFileOptions = {
   text: string
 }
 
+export type SaveBlobOptions = {
+  suggestedName: string
+  mime: string
+  ext: string
+  blob: Blob
+}
+
 export function canPickSavePath(): boolean {
   return typeof (window as WindowWithPicker).showSaveFilePicker === 'function'
 }
 
-export async function saveTextFile({ suggestedName, mime, ext, text }: SaveFileOptions): Promise<SaveResult> {
-  const blob = new Blob([text], { type: `${mime};charset=utf-8` })
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const [head, body = ''] = dataUrl.split(',')
+  const mime = /data:([^;]+)/.exec(head ?? '')?.[1] ?? 'application/octet-stream'
+  const binary = atob(body)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+  return new Blob([bytes], { type: mime })
+}
+
+export async function saveBlobFile({ suggestedName, mime, ext, blob }: SaveBlobOptions): Promise<SaveResult> {
   const picker = (window as WindowWithPicker).showSaveFilePicker
 
   if (picker) {
@@ -74,4 +89,13 @@ export async function saveTextFile({ suggestedName, mime, ext, text }: SaveFileO
     console.error('[export] 保存失败', error)
     return 'failed'
   }
+}
+
+export async function saveTextFile({ suggestedName, mime, ext, text }: SaveFileOptions): Promise<SaveResult> {
+  return saveBlobFile({
+    suggestedName,
+    mime,
+    ext,
+    blob: new Blob([text], { type: `${mime};charset=utf-8` }),
+  })
 }

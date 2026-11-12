@@ -47,7 +47,8 @@ await sleep(1500)
 const code = doc.getText('code').toString()
 const notes = doc.getText('notes').toString()
 const meta = Object.fromEntries(doc.getMap('meta').entries())
-console.log(JSON.stringify({ room, codeLen: code.length, code, notes, meta }, null, 2))
+const shapes = [...doc.getMap('shapes').entries()].map(([id, shape]) => ({ id, type: shape?.type, points: shape?.points?.length, w: shape?.w, h: shape?.h, text: shape?.text }))
+console.log(JSON.stringify({ room, codeLen: code.length, notes, meta, shapes }, null, 2))
 
 if (append) {
   doc.getText('code').insert(code.length, `\n${append}`)
