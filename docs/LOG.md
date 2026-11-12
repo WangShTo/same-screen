@@ -104,3 +104,22 @@
 - **`YProvider` 是默认导出**（`export { YProvider as default }`），写成 `import { YProvider }` 会报 TS2614。
 - **种骨架不能用「doc 为空」判重**：DO 重启时 `onLoad` 可能拿到空状态，而客户端手里还留着上次内容，一合并就出现两份骨架（实测房间从 1 份涨到 3 份）。改成 DO storage 里的一次性 `seeded` 标记，重启不再种。
 - `keyboard.type` 里带 `\n` 不会产生换行，CodeMirror 里要单独按 Enter；这是自动化的问题，不是编辑器的问题。
+
+## Day 2.5 · 导出 + 界面减法
+
+**做了什么**
+- 新增 `src/features/export/`：`formats.ts`（4 种格式的构建器）、`save.ts`（`showSaveFilePicker` 自选路径，失败或用户取消分别处理，浏览器不支持时退化 `<a download>`）、`ExportMenu.tsx`（顶栏下拉）。
+- 格式：Markdown（题目 + 带语言围栏的代码）、源代码（后缀跟当前语言 `.java/.py/.js`）、纯文本、JSON（code/notes/meta/shapes 全量）。
+- 首页重做：去掉介绍段、装饰网格、渐变、技术栈页脚；只留标题 + 昵称 + 创建 + 房间码。
+- 房间页减法：去掉假的 `45:00` 占位计时器（Day 4 再接真的）、Tab 栏右侧重复的「N 人在线」、笔记面板的「两端同步」；编辑器关掉浏览器拼写检查（代码里的红波浪线）。
+
+**已验证**
+- `npm run typecheck` exit 0；`npm run build` 成功（JS 992.83 kB / gzip 333.05 kB）。
+- 浏览器内直接调 `EXPORT_FORMATS[].build()`：四种格式内容正确，文件名 `same-screen-a2b3c4-20261112-2100.md` 正确，源代码后缀随语言变 `.java`。
+- 保存路径探测：`canPickSavePath()` = true；把 `showSaveFilePicker` 置空后 `saveTextFile()` 返回 `downloaded`，下载兜底可用。
+- 390×844 下首页/房间 `scrollWidth === clientWidth === 390`，无横向滚动。
+- 截图：`docs/shots/ui-landing.png`、`ui-export.png`、`ui-landing-mobile.png`、`ui-room-mobile.png`。
+
+**未验证**
+- 系统「另存为」对话框里真正点保存（自动化会卡在原生弹窗，未点）。
+- Safari / Firefox（只有 Chromium 的 File System Access API；这两个走下载兜底，未实机）。

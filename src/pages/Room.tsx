@@ -18,6 +18,7 @@ import { LANGS, langLabel, type Lang } from '@/features/editor/languages'
 import { CodeEditor } from '@/features/editor/CodeEditor'
 import { usePresence, type ConnStatus } from '@/features/presence/usePresence'
 import { useRoomSession } from '@/features/room/useRoomSession'
+import { ExportMenu } from '@/features/export/ExportMenu'
 import type { Peer } from '@/features/presence/usePresence'
 
 type Tab = 'code' | 'board'
@@ -118,13 +119,6 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          <div
-            className="hidden items-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 py-1.5 sm:flex"
-            title="计时器在 Day 4 接入同步"
-          >
-            <span className="font-mono text-sm tabular-nums text-fg-dim">45:00</span>
-          </div>
-
           <StatusDot status={status} />
 
           <div className="flex items-center -space-x-1.5">
@@ -137,6 +131,8 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
               </span>
             )}
           </div>
+
+          <ExportMenu doc={session.doc} roomId={roomId} lang={session.lang} />
 
           <Button variant="outline" onClick={handleShare} className="h-8 px-2.5 py-1">
             <Copy className="h-3.5 w-3.5" />
@@ -159,7 +155,6 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         >
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-3">
             <span className="text-xs font-medium text-fg-dim">题目 / 笔记</span>
-            <span className="text-[10px] text-fg-faint">两端同步</span>
           </div>
           <div className="min-h-0 flex-1">
             {awareness ? (
@@ -169,7 +164,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
                 undoManager={session.undoManager}
                 language="javascript"
                 compact
-                placeholderText="把题目粘在这里，两个人一起看"
+                placeholderText="粘贴题目"
               />
             ) : (
               <p className="p-3 text-xs text-fg-faint">连接中…</p>
@@ -207,10 +202,6 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
                 {label}
               </button>
             ))}
-
-            <span className="ml-auto pr-1 text-[11px] text-fg-faint">
-              {status === 'connected' ? `${peers.length} 人在线` : STATUS_TEXT[status]}
-            </span>
           </div>
 
           <div className="relative min-h-0 flex-1">

@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { ArrowRight, Users } from 'lucide-react'
-import { Button } from '@/components/Button'
-import { isValidRoomCode, newRoomCode, normalizeRoomCode } from '@/lib/roomCode'
 import { MEMBER_COLORS, loadIdentity, saveIdentity } from '@/lib/identity'
+import { isValidRoomCode, newRoomCode, normalizeRoomCode } from '@/lib/roomCode'
 
 function nextColor(current: string): string {
   const idx = MEMBER_COLORS.indexOf(current as (typeof MEMBER_COLORS)[number])
@@ -27,7 +25,7 @@ export default function Landing() {
 
   function handleCreate() {
     if (!trimmed) {
-      setError('先起个昵称，对方才知道是谁')
+      setError('先填个昵称')
       return
     }
     setError('')
@@ -36,12 +34,12 @@ export default function Landing() {
 
   function handleJoin() {
     if (!trimmed) {
-      setError('先起个昵称，对方才知道是谁')
+      setError('先填个昵称')
       return
     }
     const normalized = normalizeRoomCode(code)
     if (!isValidRoomCode(normalized)) {
-      setError('房间码是 6 位，字母和数字')
+      setError('房间码是 6 位')
       return
     }
     setError('')
@@ -49,110 +47,92 @@ export default function Landing() {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-x-hidden">
-      <div className="pointer-events-none absolute inset-0 grid-bg opacity-70" />
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-[radial-gradient(ellipse_at_top,rgba(110,168,254,0.10),transparent_65%)]" />
-
-      <div className="relative mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-5 sm:px-8">
-        <header className="flex items-center justify-between py-6">
-          <div className="flex items-center gap-2.5">
-            <div className="relative h-6 w-6">
-              <span className="absolute left-0 top-0 h-4 w-4 rounded-[5px] border border-accent/70 bg-accent/15" />
-              <span className="absolute bottom-0 right-0 h-4 w-4 rounded-[5px] border border-fg-faint/60 bg-panel" />
-            </div>
-            <span className="text-[15px] font-medium tracking-wide">同屏</span>
-            <span className="hidden font-mono text-xs text-fg-faint sm:inline">same-screen</span>
+    <main className="flex min-h-dvh flex-col bg-ink">
+      <header className="flex h-20 shrink-0 items-center px-6 sm:px-10">
+        <div className="flex items-center gap-2.5">
+          <div className="relative h-6 w-6">
+            <span className="absolute left-0 top-0 h-4 w-4 rounded-[5px] border border-accent/70 bg-accent/15" />
+            <span className="absolute bottom-0 right-0 h-4 w-4 rounded-[5px] border border-fg-faint/50 bg-panel" />
           </div>
-          <span className="text-xs text-fg-faint">不用注册</span>
-        </header>
-
-        <div className="flex flex-1 items-center justify-center py-6">
-          <section className="w-full max-w-[420px]">
-            <h1 className="text-[26px] font-medium leading-[1.45] tracking-tight sm:text-[30px]">
-              一个链接，
-              <br />
-              两个人一起讲代码
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-fg-dim">
-              共享代码、画板、计时。指着某几行说话时旁边顺手画一笔，讲完能导出，也能按时间轴回放。
-            </p>
-
-            <div className="mt-7 rounded-xl border border-line bg-panel/85 p-5 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
-              <label htmlFor="nickname" className="text-xs text-fg-dim">
-                昵称
-              </label>
-              <div className="mt-2 flex gap-2">
-                <input
-                  id="nickname"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value)
-                    setError('')
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreate()
-                  }}
-                  maxLength={16}
-                  placeholder="比如 老王"
-                  className="min-w-0 flex-1 rounded-lg border border-line bg-ink px-3 py-2 text-sm outline-none placeholder:text-fg-faint focus:border-accent/60"
-                />
-                <button
-                  type="button"
-                  onClick={() => setColor(nextColor(color))}
-                  title="换个颜色"
-                  aria-label="换个颜色"
-                  className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-lg border border-line bg-ink"
-                >
-                  <span className="h-3.5 w-3.5 rounded-full" style={{ background: color }} />
-                </button>
-              </div>
-
-              <Button onClick={handleCreate} className="mt-4 w-full">
-                创建房间
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-
-              <div className="my-4 flex items-center gap-3">
-                <span className="h-px flex-1 bg-line" />
-                <span className="text-[11px] text-fg-faint">或加入别人的房间</span>
-                <span className="h-px flex-1 bg-line" />
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  value={code}
-                  onChange={(e) => {
-                    setCode(normalizeRoomCode(e.target.value))
-                    setError('')
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleJoin()
-                  }}
-                  maxLength={6}
-                  placeholder="6 位房间码"
-                  aria-label="房间码"
-                  className="min-w-0 flex-1 rounded-lg border border-line bg-ink px-3 py-2 font-mono text-sm tracking-[0.25em] outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-fg-faint focus:border-accent/60"
-                />
-                <Button variant="outline" onClick={handleJoin}>
-                  <Users className="h-4 w-4" />
-                  进入
-                </Button>
-              </div>
-
-              <p
-                className={`mt-3 min-h-[16px] text-xs ${error ? 'text-red-400' : 'text-fg-faint'}`}
-                role={error ? 'alert' : undefined}
-              >
-                {error || '创建后会得到一个房间链接，发给他就行。'}
-              </p>
-            </div>
-          </section>
+          <span className="text-[15px] font-medium tracking-wide">同屏</span>
         </div>
+      </header>
 
-        <footer className="flex items-center justify-between py-6 text-xs text-fg-faint">
-          <span>React · Yjs · Konva · Cloudflare Workers</span>
-          <span className="font-mono">v0.1</span>
-        </footer>
+      <div className="flex flex-1 items-center justify-center px-6 pb-20">
+        <div className="w-full max-w-[340px]">
+          <h1 className="text-[40px] font-semibold leading-none tracking-[-0.035em] text-fg">同屏</h1>
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.28em] text-fg-faint">same-screen</p>
+
+          <div className="mt-14 space-y-3">
+            <div className="relative">
+              <input
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value)
+                  setError('')
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleCreate()
+                }}
+                maxLength={16}
+                placeholder="昵称"
+                aria-label="昵称"
+                className="h-12 w-full rounded-2xl border border-transparent bg-panel pl-4 pr-14 text-sm text-fg outline-none transition-colors placeholder:text-fg-faint focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={() => setColor(nextColor(color))}
+                title="换个颜色"
+                aria-label="换个颜色"
+                className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-xl transition-colors hover:bg-panel-2"
+              >
+                <span className="h-3.5 w-3.5 rounded-full" style={{ background: color }} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCreate}
+              className="h-12 w-full rounded-2xl bg-accent text-sm font-medium text-accent-ink transition-opacity hover:opacity-90 active:opacity-80"
+            >
+              创建房间
+            </button>
+
+            <div className="flex items-center gap-3 py-5">
+              <span className="h-px flex-1 bg-line" />
+              <span className="text-[11px] text-fg-faint">或</span>
+              <span className="h-px flex-1 bg-line" />
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                value={code}
+                onChange={(event) => {
+                  setCode(normalizeRoomCode(event.target.value))
+                  setError('')
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleJoin()
+                }}
+                maxLength={6}
+                placeholder="房间码"
+                aria-label="房间码"
+                className="h-12 min-w-0 flex-1 rounded-2xl border border-transparent bg-panel px-4 font-mono text-sm tracking-[0.2em] text-fg outline-none transition-colors placeholder:font-sans placeholder:tracking-normal placeholder:text-fg-faint focus:border-accent/50"
+              />
+              <button
+                type="button"
+                onClick={handleJoin}
+                className="h-12 shrink-0 rounded-2xl border border-line px-5 text-sm text-fg-dim transition-colors hover:border-fg-faint/50 hover:text-fg"
+              >
+                进入
+              </button>
+            </div>
+          </div>
+
+          <p className="mt-5 h-4 text-[11px] text-red-400" role={error ? 'alert' : undefined}>
+            {error}
+          </p>
+        </div>
       </div>
     </main>
   )

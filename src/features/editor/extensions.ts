@@ -77,5 +77,7 @@ export function buildExtensions(options: BuildOptions): Extension[] {
     yCollab(ytext, awareness, { undoManager }),
     keymap.of(yUndoManagerKeymap),
     EditorView.lineWrapping,
+    // 关掉浏览器拼写检查：代码里一串红波浪线很脏，截图也不好看
+    EditorView.contentAttributes.of({ spellcheck: 'false', autocorrect: 'off', autocapitalize: 'off' }),
   ]
 }
