@@ -12,6 +12,8 @@ export type RoomSession = {
   doc: Y.Doc
   undoManager: Y.UndoManager
   provider: YProvider | null
+  /** 首次与服务端同步完成；没同步完就挂编辑器会出现「文档有内容、编辑器空白」 */
+  synced: boolean
   lang: Lang
   setLang: (next: Lang) => void
   undoState: UndoState
@@ -26,6 +28,7 @@ export function useRoomSession(roomId: string, identity: Identity): RoomSession 
   const [provider, setProvider] = useState<YProvider | null>(null)
   const [lang, setLangState] = useState<Lang>('java')
   const [undoState, setUndoState] = useState<UndoState>({ undo: 0, redo: 0 })
+  const [synced, setSynced] = useState(false)
 
   // 连接：必须等 effect 里建，避免 React 渲染期出现副作用
   useEffect(() => {
@@ -34,9 +37,14 @@ export function useRoomSession(roomId: string, identity: Identity): RoomSession 
       name: identity.name || '访客',
       color: identity.color,
     })
+    const onSynced = (state: boolean) => setSynced(state)
+    next.on('synced', onSynced)
+    setSynced(next.synced)
     setProvider(next)
     return () => {
+      next.off('synced', onSynced)
       setProvider(null)
+      setSynced(false)
       next.destroy()
     }
   }, [bundle.doc, roomId, identity.name, identity.color])
@@ -77,5 +85,5 @@ export function useRoomSession(roomId: string, identity: Identity): RoomSession 
     [bundle.doc],
   )
 
-  return { doc: bundle.doc, undoManager: bundle.undoManager, provider, lang, setLang, undoState }
+  return { doc: bundle.doc, undoManager: bundle.undoManager, provider, synced, lang, setLang, undoState }
 }

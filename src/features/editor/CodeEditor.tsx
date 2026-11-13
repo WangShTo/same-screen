@@ -44,6 +44,10 @@ export function CodeEditor({
     const view = new EditorView({
       parent: host,
       state: EditorState.create({
+        // 关键：把 Y.Text 里已有的内容塞进初始 state。
+        // yCollab 的 YSyncPlugin 只在 ytext 变化时同步（y-sync.js 里只挂 observe），
+        // 编辑器挂载时文档已有内容的话，不预置就会一直显示空白。
+        doc: ytext.toString(),
         extensions: [
           ...buildExtensions({
             ytext,

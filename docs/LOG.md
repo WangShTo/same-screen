@@ -150,3 +150,28 @@
 **踩坑**
 - 文字工具点画布不出输入框：`pointerdown` 没 `preventDefault()`，鼠标默认焦点转移把刚 `focus()` 的 input 抢走，`onBlur` 又用空值关掉。修法：`event.evt.preventDefault()` + `requestAnimationFrame` 里 focus。
 - ego 的 `page.evaluate`/`page.goto` 在切过移动端模拟后偶发挂死（>120s），`ego_screenshot` 仍正常；截图要用工具级接口，别塞进脚本。
+
+## Day 4 · 计时器、画板多人光标、修「编辑器空白」
+
+**做了什么**
+- 计时器 `src/features/timer/`：meta 只存 `timerDurationMs` / `timerEndsAt` / `timerRemainingMs`，不存倒计时；运行中本地 200ms 刷新；顶栏显示 `mm:ss`，开始/暂停/重置 + 45/60 分钟切换，剩余 ≤60 秒变暖色。
+- 骨架改由创建者客户端种：原来服务端在 `onStart` 里种，DO 重启后 storage 里 `seeded` 标记还在、Y.Doc 却没落盘，新访客会看到永久空房间。现在 `worker/Room.ts` 不再种，改 `useSeedStarter`：只在「我是创建者 + 已连接 + code 为空 + meta.seeded 不是 true」时用一个事务写入。
+- 画板多人光标：`Whiteboard` 收 `awareness`，指针位置写入 `state.board`，50ms 节流；抬笔清空；在 `listening={false}` 的预览层画小圆点 + 名字。
+
+**修的 bug：编辑器明明有内容却显示空白**
+- 现象：打开一个已有内容的房间，`doc.getText('code').length === 33`，但 CodeMirror 显示 placeholder。
+- 根因（读源码确认）：`y-codemirror.next` 的 `YSyncPlugin` 在 `constructor` 里只挂 `ytext.observe(...)`，**不会把已有内容灌进初始 EditorState**（`node_modules/y-codemirror.next/src/y-sync.js:95-124`）。编辑器挂载时文档已有内容，之后又没有新 update，就永远空白。
+- 修法：`CodeEditor` 建 state 时 `doc: ytext.toString()` 预置内容；同时 `useRoomSession` 暴露 `synced`（监听 provider 的 `synced` 事件），编辑器等首次同步完成再挂载。
+- 验证：房间 `yea7hd` 预置 33 字节 → 编辑器显示出来；再敲 ` // typed` → `ytextLen` 33 → 42（没重复插入），服务端读回 42。
+
+**已验证**
+- `npm run typecheck` exit 0；`npm run build` exit 0。
+- 计时器：点开始 → 44:58，服务端 `timerEndsAt` / `timerRemainingMs` 正确写入；第二标签页时间一致。
+- 骨架：新建房间 → `codeLen 149`、`meta {lang: java, seeded: true}`；不带 `?new=1` 重开仍是 149（没重复种）。
+- 编辑器空白修复：见上。
+- 截图 `docs/shots/day4-timer.png`（计时器运行 + 预置内容正常显示）。
+
+**未验证**
+- 画板多人光标的**渲染**只验证了数据层（`awareness.getStates()` 里 peer 的 `board` 坐标正确），没截到两个客户端同时出现的光标。
+- 移动端真机触屏画板。
+- 开发环境 DO 跨重启的持久化表现不稳定（`yea7hd` 重启后内容丢过一次），生产环境靠 Durable Object storage，部署后再验。

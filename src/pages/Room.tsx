@@ -171,7 +171,7 @@ function RoomWorkspace({ roomId, isCreator }: { roomId: string; isCreator: boole
             <span className="text-xs font-medium text-fg-dim">题目 / 笔记</span>
           </div>
           <div className="min-h-0 flex-1">
-            {awareness ? (
+            {awareness && session.synced ? (
               <CodeEditor
                 ytext={notes}
                 awareness={awareness}
@@ -181,7 +181,7 @@ function RoomWorkspace({ roomId, isCreator }: { roomId: string; isCreator: boole
                 placeholderText="粘贴题目"
               />
             ) : (
-              <p className="p-3 text-xs text-fg-faint">连接中…</p>
+              <p className="p-3 text-xs text-fg-faint">同步中…</p>
             )}
           </div>
         </aside>
@@ -221,7 +221,7 @@ function RoomWorkspace({ roomId, isCreator }: { roomId: string; isCreator: boole
           <div className="relative min-h-0 flex-1">
             {/* 代码：常驻，切 Tab 只隐藏，避免重建编辑器丢光标 */}
             <div className={`absolute inset-0 ${tab === 'code' ? '' : 'hidden'}`}>
-              {awareness ? (
+              {awareness && session.synced ? (
                 <CodeEditor
                   ytext={code}
                   awareness={awareness}
