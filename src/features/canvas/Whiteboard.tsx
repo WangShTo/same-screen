@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Layer, Stage } from 'react-konva'
+import { Circle, Group, Layer, Stage, Text } from 'react-konva'
 import type Konva from 'konva'
 import type * as Y from 'yjs'
-import { withLocalOrigin } from '@/lib/ydoc'
+import type { Awareness } from 'y-protocols/awareness'
+import { AWARENESS_THROTTLE_MS, withLocalOrigin } from '@/lib/ydoc'
 import { CanvasToolbar } from './CanvasToolbar'
 import { ShapeNode } from './ShapeNode'
 import { registerCanvasSnapshot } from './snapshot'
@@ -13,6 +14,15 @@ type Props = {
   ydoc: Y.Doc
   userId: string
   undoManager: Y.UndoManager
+  awareness: Awareness | null
+}
+
+type PeerCursor = {
+  id: number
+  x: number
+  y: number
+  name: string
+  color: string
 }
 
 const CURSOR: Record<string, string> = {
@@ -27,7 +37,7 @@ function readShapes(map: Y.Map<Shape>): Shape[] {
   return [...map.values()].filter(isShape)
 }
 
-export function Whiteboard({ ydoc, userId, undoManager }: Props) {
+export function Whiteboard({ ydoc, userId, undoManager, awareness }: Props) {
   const map = useMemo(() => ydoc.getMap<Shape>('shapes'), [ydoc])
   const tool = useCanvasUi((state) => state.tool)
   const color = useCanvasUi((state) => state.color)
@@ -44,6 +54,8 @@ export function Whiteboard({ ydoc, userId, undoManager }: Props) {
   const [shapes, setShapes] = useState<Shape[]>(() => readShapes(map))
   const [draft, setDraft] = useState<Shape | null>(null)
   const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string } | null>(null)
+  const [peerCursors, setPeerCursors] = useState<PeerCursor[]>([])
+  const lastSentRef = useRef(0)
 
   // 共享图元跟着 Y.Map 走，不另存一份
   useEffect(() => {
@@ -52,6 +64,39 @@ export function Whiteboard({ ydoc, userId, undoManager }: Props) {
     sync()
     return () => map.unobserve(sync)
   }, [map])
+
+  // 别人的光标：走 awareness，不进文档；本地 50ms 节流
+  useEffect(() => {
+    if (!awareness) return
+    const sync = () => {
+      const next: PeerCursor[] = []
+      awareness.getStates().forEach((state, clientId) => {
+        if (clientId === awareness.clientID) return
+        const board = state.board as { x?: number; y?: number } | undefined
+        if (!board || typeof board.x !== 'number' || typeof board.y !== 'number') return
+        const user = state.user as { name?: string; color?: string } | undefined
+        next.push({
+          id: clientId,
+          x: board.x,
+          y: board.y,
+          name: user?.name ?? '对方',
+          color: user?.color ?? '#6ea8fe',
+        })
+      })
+      setPeerCursors(next)
+    }
+    awareness.on('change', sync)
+    sync()
+    return () => awareness.off('change', sync)
+  }, [awareness])
+
+  function publishPointer(pos: { x: number; y: number } | null) {
+    if (!awareness) return
+    const now = Date.now()
+    if (now - lastSentRef.current < AWARENESS_THROTTLE_MS) return
+    lastSentRef.current = now
+    awareness.setLocalStateField('board', pos)
+  }
 
   // 画布尺寸跟容器走
   useEffect(() => {
@@ -159,6 +204,7 @@ export function Whiteboard({ ydoc, userId, undoManager }: Props) {
   function handlePointerMove(event: Konva.KonvaEventObject<PointerEvent>) {
     const pos = pointer()
     if (!pos) return
+    publishPointer(pos)
 
     if (tool === 'eraser') {
       if (event.evt.buttons === 1 || event.evt.pointerType === 'touch') eraseAt(pos)
@@ -189,6 +235,7 @@ export function Whiteboard({ ydoc, userId, undoManager }: Props) {
   }
 
   function handlePointerUp() {
+    if (awareness) awareness.setLocalStateField('board', null)
     const shape = draft
     startRef.current = null
     pointsRef.current = []
@@ -252,6 +299,12 @@ export function Whiteboard({ ydoc, userId, undoManager }: Props) {
         <Layer listening={tool === 'eraser'}>{shapes.map((shape) => <ShapeNode key={shape.id} shape={shape} />)}</Layer>
         <Layer listening={false}>
           {preview && <ShapeNode shape={preview} />}
+          {peerCursors.map((cursor) => (
+            <Group key={cursor.id} x={cursor.x} y={cursor.y}>
+              <Circle radius={4} fill={cursor.color} opacity={0.95} />
+              <Text text={cursor.name} x={8} y={6} fontSize={11} fill={cursor.color} opacity={0.85} />
+            </Group>
+          ))}
         </Layer>
       </Stage>
 

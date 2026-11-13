@@ -1,7 +1,9 @@
 /**
  * 每种语言的默认骨架。
- * 放在 worker 里，由房间在**第一次被打开时**写入：Durable Object 是单实例，
- * 不会出现两个客户端同时判断"空文档"然后各插一份的竞态。
+ *
+ * 只在**创建房间**的客户端上种一次（见 `useSeedStarter`）：
+ * 服务端种会遇到「DO 重启后文档是空的、但客户端手里还有旧内容」的情况，
+ * 两边一合并就变成两份骨架。客户端知道自己刚创建房间，种完再进就是唯一真相。
  */
 export const STARTER: Record<'java' | 'python' | 'javascript', string> = {
   java: `public class Main {
@@ -26,5 +28,3 @@ print(solve([3, 1, 2]))
 console.log(solve([3, 1, 2]))
 `,
 }
-
-export type StarterLang = keyof typeof STARTER

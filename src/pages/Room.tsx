@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router'
 import {
   Code2,
   Copy,
@@ -20,6 +20,9 @@ import { usePresence, type ConnStatus } from '@/features/presence/usePresence'
 import { useRoomSession } from '@/features/room/useRoomSession'
 import { Whiteboard } from '@/features/canvas/Whiteboard'
 import { ExportMenu } from '@/features/export/ExportMenu'
+import { TimerControl } from '@/features/timer/TimerControl'
+import { useTimer } from '@/features/timer/useTimer'
+import { useSeedStarter } from '@/features/editor/useSeedStarter'
 import type { Peer } from '@/features/presence/usePresence'
 
 type Tab = 'code' | 'board'
@@ -75,7 +78,7 @@ function Avatar({ peer }: { peer: Peer }) {
   )
 }
 
-function RoomWorkspace({ roomId }: { roomId: string }) {
+function RoomWorkspace({ roomId, isCreator }: { roomId: string; isCreator: boolean }) {
   const [identity] = useState(loadIdentity)
   const [tab, setTab] = useState<Tab>('code')
   const [notesOpen, setNotesOpen] = useState(true)
@@ -84,6 +87,8 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
   const session = useRoomSession(roomId, identity)
   const { status, peers } = usePresence(session.provider)
+  const timer = useTimer(session.doc)
+  useSeedStarter({ ydoc: session.doc, status, isCreator })
 
   const code = useMemo(() => session.doc.getText('code'), [session.doc])
   const notes = useMemo(() => session.doc.getText('notes'), [session.doc])
@@ -94,6 +99,12 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
     setCopied(ok)
     window.setTimeout(() => setCopied(false), 1600)
   }
+
+  // 调试用：只在 dev 下挂，方便脚本/控制台看真实同步状态
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    ;(window as unknown as { __ssRoom?: unknown }).__ssRoom = { doc: session.doc, awareness }
+  }, [session.doc, awareness])
 
   const visiblePeers = peers.slice(0, 3)
   const morePeers = peers.length - visiblePeers.length
@@ -120,6 +131,8 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          <TimerControl timer={timer} />
+
           <StatusDot status={status} />
 
           <div className="flex items-center -space-x-1.5">
@@ -224,7 +237,12 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
             {tab === 'board' && (
               <div className="absolute inset-0">
-                <Whiteboard ydoc={session.doc} userId={identity.id} undoManager={session.undoManager} />
+                <Whiteboard
+                  ydoc={session.doc}
+                  userId={identity.id}
+                  undoManager={session.undoManager}
+                  awareness={awareness}
+                />
               </div>
             )}
           </div>
@@ -284,6 +302,7 @@ function RoomWorkspace({ roomId }: { roomId: string }) {
 
 export default function Room() {
   const { id = '' } = useParams()
+  const [params] = useSearchParams()
   if (!isValidRoomCode(id)) return <InvalidRoom />
-  return <RoomWorkspace roomId={id} />
+  return <RoomWorkspace roomId={id} isCreator={params.get('new') === '1'} />
 }

@@ -20,7 +20,7 @@ export default function Landing() {
 
   function enter(roomId: string) {
     saveIdentity(trimmed, color)
-    navigate(`/room/${roomId}`)
+    navigate(`/room/${roomId}?new=1`)
   }
 
   function handleCreate() {
