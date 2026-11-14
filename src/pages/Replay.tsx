@@ -6,6 +6,7 @@ const SPEEDS = [1, 2, 4] as const
 
 export default function Replay() {
   const { id = '' } = useParams()
+  const valid = isValidRoomCode(id)
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-ink">
@@ -18,21 +19,13 @@ export default function Replay() {
           回到房间
         </Link>
         <span className="h-4 w-px bg-line" />
-        <span className="text-sm text-fg-dim">回放</span>
-        <span className="rounded border border-line bg-panel px-1.5 py-0.5 font-mono text-[11px] tracking-wider text-fg-faint">
+        <span className="shrink-0 rounded border border-line bg-panel px-1.5 py-0.5 font-mono text-[11px] tracking-wider text-fg-faint">
           {id}
         </span>
       </header>
 
-      <div className="grid min-h-0 flex-1 place-items-center p-6">
-        <div className="w-full max-w-sm rounded-xl border border-dashed border-line p-8 text-center">
-          <p className="text-sm text-fg-dim">
-            {isValidRoomCode(id) ? '回放画面' : '房间码不对'}
-          </p>
-          <p className="mt-1.5 text-xs text-fg-faint">
-            {isValidRoomCode(id) ? '按 Yjs update 时间轴重演 · Day 5' : '检查一下链接'}
-          </p>
-        </div>
+      <div className="grid min-h-0 flex-1 place-items-center">
+        <span className="font-mono text-xs text-fg-faint">{valid ? '暂无记录' : '房间码不对'}</span>
       </div>
 
       <footer className="shrink-0 border-t border-line px-3 py-2.5">
@@ -50,23 +43,23 @@ export default function Replay() {
           </div>
           <span className="font-mono text-[11px] tabular-nums text-fg-faint">00:00 / 00:00</span>
           <div className="flex items-center gap-1">
-            {SPEEDS.map((s) => (
+            {SPEEDS.map((speed) => (
               <button
-                key={s}
+                key={speed}
                 type="button"
                 disabled
                 className={`rounded px-1.5 py-0.5 font-mono text-[11px] ${
-                  s === 1 ? 'bg-panel-2 text-fg-dim' : 'text-fg-faint'
+                  speed === 1 ? 'bg-panel-2 text-fg-dim' : 'text-fg-faint'
                 } disabled:opacity-60`}
               >
-                {s}x
+                {speed}x
               </button>
             ))}
           </div>
         </div>
         <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-fg-faint">
           <Pause className="h-3 w-3" />
-          播放器未接入数据
+          未接入
         </p>
       </footer>
     </main>
