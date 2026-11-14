@@ -175,3 +175,20 @@
 - 画板多人光标的**渲染**只验证了数据层（`awareness.getStates()` 里 peer 的 `board` 坐标正确），没截到两个客户端同时出现的光标。
 - 移动端真机触屏画板。
 - 开发环境 DO 跨重启的持久化表现不稳定（`yea7hd` 重启后内容丢过一次），生产环境靠 Durable Object storage，部署后再验。
+
+## Day 4.5 · 按 modern-web-guidance 规范修一遍
+
+**做了什么**
+- 新增 `src/lib/keyboard.ts` 的 `isImeComposing()`，三处自定义 Enter 处理加守卫：
+  - `src/pages/Landing.tsx` 昵称回车创建房间、房间码回车加入房间；
+  - `src/features/canvas/Whiteboard.tsx` 画板文字输入框回车提交。
+- 判断顺序按 guide 来：先 `preventDefault()`（拦掉 input 的隐式提交/换行），再看 `event.nativeEvent.isComposing`，并补 `keyCode === 229` 兜底 Safari 的事件顺序 bug。
+
+**已验证**
+- `node modern-web.mjs legacy-scan src`：修前 3 处 findings，修后 **0 处**。
+- `npm run typecheck` exit 0；`npm run build` exit 0。
+- 浏览器实测：给昵称输入框派发一个 `isComposing: true` 的 Enter，路由停在 `/`（没有建房间）；再派发普通 Enter，跳到 `/room/gjhzpc?new=1`。
+
+**未验证**
+- 真实输入法（微软拼音）里手动选字回车，只用合成事件模拟。
+- 画板文字输入框的组字场景没单独点。
