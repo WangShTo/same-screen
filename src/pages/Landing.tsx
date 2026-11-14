@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { MEMBER_COLORS, loadIdentity, saveIdentity } from '@/lib/identity'
+import { isImeComposing } from '@/lib/keyboard'
 import { isValidRoomCode, newRoomCode, normalizeRoomCode } from '@/lib/roomCode'
 
 function nextColor(current: string): string {
@@ -72,7 +73,10 @@ export default function Landing() {
                   setError('')
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleCreate()
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  if (isImeComposing(event.nativeEvent)) return
+                  handleCreate()
                 }}
                 maxLength={16}
                 placeholder="昵称"
@@ -112,7 +116,10 @@ export default function Landing() {
                   setError('')
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleJoin()
+                  if (event.key !== 'Enter') return
+                  event.preventDefault()
+                  if (isImeComposing(event.nativeEvent)) return
+                  handleJoin()
                 }}
                 maxLength={6}
                 placeholder="房间码"

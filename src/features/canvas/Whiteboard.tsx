@@ -318,6 +318,8 @@ export function Whiteboard({ ydoc, userId, undoManager, awareness }: Props) {
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault()
+              // 输入法组字中的回车是选字，不是提交；keyCode 229 兜底 Safari
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return
               commitText()
             }
             if (event.key === 'Escape') setTextDraft(null)
