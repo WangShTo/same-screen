@@ -38,7 +38,7 @@ export function RoomHeader({ roomId, doc, lang, status, peers, copied, onShare }
   const more = peers.length - visible.length
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-line px-3 sm:gap-3">
+    <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-line px-3 sm:gap-3">
       <Link to="/" className="flex shrink-0 items-center gap-2" title="回首页">
         <div className="relative h-5 w-5">
           <span className="absolute left-0 top-0 h-3.5 w-3.5 rounded-[4px] border border-accent/70 bg-accent/15" />
@@ -53,7 +53,7 @@ export function RoomHeader({ roomId, doc, lang, status, peers, copied, onShare }
         {roomId}
       </span>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
         <TimerControl timer={timer} />
         <StatusDot status={status} />
 

@@ -32,7 +32,7 @@ export function TimerControl({ timer }: Props) {
       <button
         type="button"
         onClick={timer.reset}
-        className="grid h-6 w-6 place-items-center rounded text-fg-faint hover:bg-panel-2 hover:text-fg"
+        className="hidden h-6 w-6 place-items-center rounded text-fg-faint hover:bg-panel-2 hover:text-fg sm:grid"
         title="重置到整段时间"
         aria-label="重置计时"
       >
