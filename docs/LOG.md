@@ -211,8 +211,8 @@
 - 截图：`docs/shots/day4-landing.png`、`day4-room.png`、`day4-replay.png`。
 
 **已补**
-- 390×844 实测：房间页顶栏不再溢出（最后一个按钮 right=378 < 390），；回放页同样不横向滚动。
-- 移动端顶栏在 <sm 时隐藏「重置计时」按钮，间距收紧到 。截图：、。
+- 390×844 实测：房间页顶栏不再溢出（最后一个按钮 right=378 < 390），`scrollWidth === clientWidth === 390`；回放页同样不横向滚动。
+- 移动端顶栏在 <sm 时隐藏「重置计时」按钮，间距收紧到 `gap-1.5`。截图：`day4-room-mobile.png`、`day4-replay-mobile.png`。
 
 **未验证**
 - 真机触屏（只用设备模拟）。
