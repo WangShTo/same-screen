@@ -78,7 +78,7 @@ function RoomWorkspace({ roomId, isCreator }: { roomId: string; isCreator: boole
           ytext={notes}
           awareness={awareness}
           undoManager={session.undoManager}
-          synced={session.synced}
+          synced={session.everSynced}
           open={notesOpen}
         />
 
@@ -111,7 +111,7 @@ function RoomWorkspace({ roomId, isCreator }: { roomId: string; isCreator: boole
           <div className="relative min-h-0 flex-1">
             {/* 代码常驻，切 Tab 只隐藏，避免重建编辑器丢光标 */}
             <div className={`absolute inset-0 ${tab === 'code' ? '' : 'hidden'}`}>
-              {awareness && session.synced ? (
+              {awareness && session.everSynced ? (
                 <CodeEditor
                   ytext={code}
                   awareness={awareness}

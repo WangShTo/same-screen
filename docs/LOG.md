@@ -242,3 +242,23 @@
 - 关键帧在「长时间房间」里的命中效果（目前只有 2 个关键帧，seek 快慢没测）。
 - DO 重启后日志能否完整恢复（依赖写盘合并，强杀进程可能丢最后 1.5 秒）。
 - 真机触屏的画板回放。
+
+## Day 6 · 断线重连、空/错状态、快捷键、移动端、部署
+
+**做了什么**
+- 修一个断线时内容会消失的问题：编辑器之前用 `session.synced` 作为挂载条件，断线后 provider 把 `synced` 置回 false，编辑器被卸载、用户眼前的内容直接没了。改成 `useRoomSession` 多暴露一个 `everSynced`（同步过一次就永久为 true），`Room.tsx` 与 `NotesPanel` 只认它。
+- 快捷键复查：画板 `B/R/A/T/E` 切工具、`Ctrl/⌘+Z` 撤销、`Ctrl/⌘+Shift+Z` 重做（只撤自己）；代码编辑器用 `yUndoManagerKeymap`。
+
+**已验证（本轮真跑）**
+- 断线：杀掉 wrangler 进程 4 秒后页面显示「连接中」，编辑器内容仍在（代码 163 字、笔记 29 字，卸载问题修复后）。
+- 离线编辑：断线状态在编辑器里敲 ` // offline-edit`（内容变 179 字），恢复 wrangler 后约 12 秒回到「已连接 / 已同步」，`ROOM=t5st2x node scripts/room-peek.mjs` 读到服务端 `codeLen 185` —— 断线期间的输入在重连后补齐。
+- 空/错状态：`/no-such-page` → `404 / 这个页面不存在 / 回首页`；`/room/zzzz` → `房间码不对 / 回首页`；回放页无数据时 `暂无记录`。
+- 快捷键：画板按 `r` 再拖，服务端多出一条 `type: rect` 的图元；按 `Ctrl+Z` 后该图元消失、先前那条保留（撤销只撤自己的操作）。
+- 移动端 390×844：画板页 `scrollWidth === clientWidth === 390`，工具栏收成 5 个工具 + 3 个色点，无横向滚动；截图 `docs/shots/day6-room-mobile-board.png`。
+- 部署：`wrangler deploy --temporary` 成功，3 个静态资源 321.47 KiB（gzip 66.50 KiB）、Worker 启动 6 ms、返回 `https://same-screen.jasper-swordtail.workers.dev`（临时账号，60 分钟内可在 Cloudflare 面板认领）。
+- 截图：`docs/shots/day6-disconnected.png`、`day6-reconnected.png`、`day6-board-undo.png`、`day6-room-mobile-board.png`。
+
+**未验证**
+- 正式 `wrangler login` + `npm run deploy`（需要账号）。`*.workers.dev` 在本机 DNS 被解析到 `157.240.10.32`（上一轮是 `31.13.85.2`），TCP 超时 → 公网可访问性仍无法在本机确认。
+- 真机触屏画板（只在 390 宽模拟下确认布局与鼠标绘制）。
+- 断线超过 provider 重试上限（`maxBackoffTime`）后的表现未测。

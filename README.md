@@ -89,9 +89,9 @@ npm run deploy         # 产出 https://same-screen.<你的子域>.workers.dev
 
 `wrangler.jsonc` 已经把三件事配好了：Worker 入口、`Main` Durable Object 绑定（`Room` 类）、`dist/` 作为静态资源并开启 SPA 回落。
 
-**已验证**：`wrangler deploy --temporary`（不登录、临时预览账号）成功发出过一次——3 个静态资源 319 KiB（gzip 65.6 KiB）、Worker 启动 18 ms，返回 `https://same-screen.<临时子域>.workers.dev`。
+**已验证**：`wrangler deploy --temporary`（不登录、临时预览账号）发过两次，都成功——2026-11-24 这次 3 个静态资源 321 KiB（gzip 66.5 KiB）、Worker 启动 6 ms，返回 `https://same-screen.<临时子域>.workers.dev`。
 
-**未验证**：正式 `wrangler login` + `npm run deploy`（需要你自己的 Cloudflare 账号）。另外这台机器上 `*.workers.dev` 的 DNS 被解析到了错误 IP、TCP 连接超时，**公网可访问性没法在本机确认**；国内环境建议部署后绑自定义域名再验，不要以 workers.dev 直连为准。
+**未验证**：正式 `wrangler login` + `npm run deploy`（需要你自己的 Cloudflare 账号）。另外这台机器上 `*.workers.dev` 的 DNS 被解析到了错误 IP（这次是 `157.240.10.32`，上一次 `31.13.85.2`）、TCP 连接超时，**公网可访问性没法在本机确认**；国内环境建议部署后绑自定义域名再验，不要以 workers.dev 直连为准。
 
 ## 目录
 
