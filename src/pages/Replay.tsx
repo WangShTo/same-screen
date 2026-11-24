@@ -1,12 +1,86 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ArrowLeft, Pause, Play } from 'lucide-react'
 import { isValidRoomCode } from '@/lib/roomCode'
+import { fetchReplayLog, formatClock, type ReplayLog } from '@/features/replay/api'
+import { frameAt } from '@/features/replay/frameAt'
+import { ReplayCanvas } from '@/features/replay/ReplayCanvas'
+import { ReplayCode } from '@/features/replay/ReplayCode'
 
 const SPEEDS = [1, 2, 4] as const
+/** 时间轴按 100ms 量化：回放时没必要每条 update 都重算一遍文档 */
+const TICK = 100
 
 export default function Replay() {
   const { id = '' } = useParams()
   const valid = isValidRoomCode(id)
+
+  const [log, setLog] = useState<ReplayLog | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [at, setAt] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]>(1)
+  const [tab, setTab] = useState<'code' | 'board'>('code')
+
+  useEffect(() => {
+    if (!valid) return
+    let alive = true
+    fetchReplayLog(id)
+      .then((data) => {
+        if (!alive) return
+        setLog(data)
+        setAt(data.duration)
+      })
+      .catch((err: unknown) => {
+        if (alive) setError(err instanceof Error ? err.message : '读取回放失败')
+      })
+    return () => {
+      alive = false
+    }
+  }, [id, valid])
+
+  const duration = log?.duration ?? 0
+  // 时间轴按 100ms 量化，避免播放时每帧都重算文档；
+  // 停在末尾时要多给 1ms，否则最后一条 update（t === duration）会被丢在时间点外
+  const quantized = Math.round(at / TICK) * TICK
+  const appliedAt = at >= duration - 1 ? duration + 1 : quantized
+
+  // 播放：rAF 累加真实时间 × 倍速
+  const raf = useRef<number | null>(null)
+  const last = useRef(0)
+
+  useEffect(() => {
+    if (!playing) return
+    last.current = performance.now()
+    const step = (now: number) => {
+      const delta = (now - last.current) * speed
+      last.current = now
+      setAt((prev) => {
+        const next = prev + delta
+        if (next >= duration) {
+          setPlaying(false)
+          return duration
+        }
+        return next
+      })
+      raf.current = requestAnimationFrame(step)
+    }
+    raf.current = requestAnimationFrame(step)
+    return () => {
+      if (raf.current) cancelAnimationFrame(raf.current)
+      raf.current = null
+    }
+  }, [playing, speed, duration])
+
+  const frame = useMemo(() => (log ? frameAt(log, appliedAt) : null), [log, appliedAt])
+
+  const toggle = useCallback(() => {
+    if (!log || duration === 0) return
+    setAt((prev) => (prev >= duration ? 0 : prev))
+    setPlaying((prev) => !prev)
+  }, [log, duration])
+
+  const empty = !valid || error !== null || (log !== null && log.log.length === 0)
 
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-ink">
@@ -22,45 +96,86 @@ export default function Replay() {
         <span className="shrink-0 rounded border border-line bg-panel px-1.5 py-0.5 font-mono text-[11px] tracking-wider text-fg-faint">
           {id}
         </span>
+
+        {!empty && (
+          <div className="ml-auto flex items-center gap-1">
+            {(['code', 'board'] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={`rounded-md px-2.5 py-1 text-xs ${
+                  tab === key ? 'bg-panel-2 text-fg' : 'text-fg-dim hover:text-fg'
+                }`}
+              >
+                {key === 'code' ? '代码' : '画板'}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
-      <div className="grid min-h-0 flex-1 place-items-center">
-        <span className="font-mono text-xs text-fg-faint">{valid ? '暂无记录' : '房间码不对'}</span>
-      </div>
+      {empty ? (
+        <div className="grid min-h-0 flex-1 place-items-center">
+          <span className="font-mono text-xs text-fg-faint">
+            {!valid ? '房间码不对' : (error ?? '暂无记录')}
+          </span>
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {tab === 'code'
+            ? frame && <ReplayCode text={frame.code} lang={frame.lang} />
+            : frame && <ReplayCanvas shapes={frame.shapes} />}
+        </div>
+      )}
 
       <footer className="shrink-0 border-t border-line px-3 py-2.5">
         <div className="flex items-center gap-3">
           <button
             type="button"
-            disabled
-            className="grid h-8 w-8 place-items-center rounded-lg bg-panel-2 text-fg-dim disabled:opacity-50"
+            onClick={toggle}
+            disabled={empty || duration === 0}
+            className="grid h-8 w-8 place-items-center rounded-lg bg-panel-2 text-fg-dim hover:text-fg disabled:opacity-50"
           >
-            <Play className="h-4 w-4 translate-x-px" />
-            <span className="sr-only">播放</span>
+            {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-px" />}
+            <span className="sr-only">{playing ? '暂停' : '播放'}</span>
           </button>
-          <div className="relative h-1 flex-1 rounded-full bg-line">
-            <span className="absolute inset-y-0 left-0 w-0 rounded-full bg-accent" />
-          </div>
-          <span className="font-mono text-[11px] tabular-nums text-fg-faint">00:00 / 00:00</span>
+
+          <input
+            type="range"
+            min={0}
+            max={Math.max(duration, 1)}
+            step={TICK}
+            value={Math.min(at, duration)}
+            disabled={empty || duration === 0}
+            onChange={(event) => {
+              setPlaying(false)
+              setAt(Number(event.target.value))
+            }}
+            className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-line accent-(--color-accent) disabled:opacity-50"
+            aria-label="时间轴"
+          />
+
+          <span className="font-mono text-[11px] tabular-nums text-fg-faint">
+            {formatClock(at)} / {formatClock(duration)}
+          </span>
+
           <div className="flex items-center gap-1">
-            {SPEEDS.map((speed) => (
+            {SPEEDS.map((value) => (
               <button
-                key={speed}
+                key={value}
                 type="button"
-                disabled
+                onClick={() => setSpeed(value)}
+                disabled={empty}
                 className={`rounded px-1.5 py-0.5 font-mono text-[11px] ${
-                  speed === 1 ? 'bg-panel-2 text-fg-dim' : 'text-fg-faint'
+                  value === speed ? 'bg-panel-2 text-fg-dim' : 'text-fg-faint hover:text-fg'
                 } disabled:opacity-60`}
               >
-                {speed}x
+                {value}x
               </button>
             ))}
           </div>
         </div>
-        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-fg-faint">
-          <Pause className="h-3 w-3" />
-          未接入
-        </p>
       </footer>
     </main>
   )

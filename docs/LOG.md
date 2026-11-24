@@ -216,3 +216,29 @@
 
 **未验证**
 - 真机触屏（只用设备模拟）。
+
+## Day 5 · 事件日志 + 快照 + 回放
+
+**做了什么**
+- `worker/Room.ts`：每条 Yjs update 记 `{ seq, t, u }`（`t` 是相对房间启动的毫秒），每 50 条更新或 30 秒存一个关键帧 `{ seq, t, s }`（`Y.encodeStateAsUpdate` 的 base64），日志与关键帧合并写进 DO storage（1.5 秒合并一次，别每个按键都写盘）；日志上限 4000 条、关键帧只留最近 20 个。
+- 回放数据口挂回同一个 Durable Object：`GET /parties/main/:room/replay` 走 `onRequest`，直接返回 `{ startedAt, duration, snaps, log }`，不需要额外 Worker 路由。
+- `src/features/replay/`：
+  - `api.ts`：取日志、`formatClock`、语言兜底。
+  - `frameAt.ts`：新建空 `Y.Doc`，找到最后一个 `t <= 目标时间` 的关键帧作起点，再按 `seq` 顺序 `applyUpdate` 之后的条目，读出 `code` / `notes` / `shapes` / `lang`。
+  - `ReplayCode.tsx`：只读 CodeMirror，复用房间的主题、语法高亮、行号（不复用 `CodeEditor`，那个绑着 yCollab）。
+  - `ReplayCanvas.tsx`：只读 Konva，复用 `ShapeNode`，`listening={false}`。
+- `src/pages/Replay.tsx`：时间轴（100ms 量化）、播放/暂停、1x/2x/4x、代码/画板 Tab；进页面先停在末尾（看到最新状态），点播放从当前位置继续，播到末尾自动停。
+
+**已验证**
+- 在房间 `t5st2x` 里真实操作：笔记打字、代码里插 `// 代码回放 A` 与 `int x = 42;`、画板画一个 180×120 矩形。
+- `/parties/main/t5st2x/replay` 返回 51 条 update、2 个关键帧、`duration` 134709ms。
+- 直接调 `frameAt`：`t=0` 代码 0 字、`t=30000~60000` 149 字（骨架）、`t=116000` 165 字、`t=134709` 169 字且 `shapes=1` —— 说明代码修改顺序和图元都按时间还原。
+- 页面实测：进回放停在 `02:14 / 02:14`，代码里能看到插入的 `// 代码回放 A`；切「画板」能看到那个矩形；把时间轴拖回 `00:50` 代码变回骨架、画板为空；点播放 2 秒走 1 秒（1x），切 2x 后 2 秒走 4 秒。
+- 修了一个边界 bug：停在末尾时 `at === duration`，向下量化会把 `t === duration` 的最后一条 update 丢掉（矩形不显示），改成末尾多给 1ms。
+- `npm run typecheck` exit 0；`npm run build` exit 0（JS 1.34MB / gzip 441KB）。
+- 截图：`docs/shots/day5-replay-code.png`、`day5-replay-end.png`、`day5-replay-board.png`、`day5-room-board.png`。
+
+**未验证**
+- 关键帧在「长时间房间」里的命中效果（目前只有 2 个关键帧，seek 快慢没测）。
+- DO 重启后日志能否完整恢复（依赖写盘合并，强杀进程可能丢最后 1.5 秒）。
+- 真机触屏的画板回放。
