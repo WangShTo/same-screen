@@ -2,7 +2,9 @@
 
 一个链接，两个人远程讲代码：一起改代码、顺手画图、计时，讲完能导出和回放。
 
-作品集项目，7 天 MVP。当前进度：**Day 2 代码同步**（详见下方「进度」）。
+作品集项目，7 天 MVP。当前进度：**Day 0–7 全部完成**（详见下方「进度」），可在本地跑通，部署需要你自己的 Cloudflare 账号。
+
+![首页](docs/shots/day4-landing.png)
 
 ## 现在能做什么
 
@@ -15,14 +17,27 @@
 | 在线成员 | Awareness 里的昵称/颜色，顶栏头像最多 3 个 + `+N` |
 | 连接状态 | 顶栏与底部都显示真实状态（连接中 / 已连接 / 已断开），断线自动重连 |
 | 撤销重做 | `Y.UndoManager` 只撤自己的操作，底部按钮按栈深度启用 |
-| 首次进房有骨架 | Durable Object 在第一次打开时种入当前语言的模板代码 |
+| 首次进房有骨架 | 创建房间的人写一次默认模板（`code` 为空且未种过时才写），后来的人不会重复种 |
 | 画板 | Konva 自研：笔 / 矩形 / 箭头 / 文字 / 橡皮、5 色 3 线宽，图元走 `Y.Map` 同步 |
+| 画板快捷键 | `B` 笔 · `R` 矩形 · `A` 箭头 · `T` 文字 · `E` 橡皮；`Ctrl+Z` / `Ctrl+Shift+Z` 只撤自己的 |
+| 画板多人光标 | 对方指针在画板上带昵称和颜色，走 Awareness，不进文档 |
+| 计时器 | 45 / 60 分钟，开始 / 暂停 / 重置；只同步 `timerEndsAt`，两端看到同一个剩余时间 |
 | 导出 | 顶栏「导出」→ Markdown / 源代码 / 纯文本 / JSON / 画板 PNG；支持系统「另存为」自选路径，浏览器不支持时退化为下载 |
 | 分享 | 复制房间链接，`/r/:code` 短链会跳到房间 |
 | 回放 | 服务端给每条 Yjs update 记 `{seq, t, update}`，每 30 秒或 50 条更新存一个关键帧；`/room/:code/replay` 按时间轴重放代码和画板，支持播放/暂停与 1x/2x/4x |
 | 错码兜底 | 房间码不合法时给提示页，不是白屏 |
 
-**还不能**：真正的双浏览器验收（Day 7）、移动端真机验证。
+**还不能**：两台真实设备（一真机一电脑）交叉验证、真机触屏画板的精修手感、正式 Cloudflare 账号部署（见「部署」）。
+
+## 截图
+
+| 房间（两人在线） | 画板回放 |
+| --- | --- |
+| ![房间](docs/shots/day7-two-clients.png) | ![回放](docs/shots/day5-replay-end.png) |
+
+| 200 图元性能测试 | 手机画板 |
+| --- | --- |
+| ![性能](docs/shots/day7-perf-200.png) | ![手机](docs/shots/day6-room-mobile-board.png) |
 
 ## 技术栈
 
@@ -99,17 +114,29 @@ npm run deploy         # 产出 https://same-screen.<你的子域>.workers.dev
 src/
   app/          router、providers、全局样式
   pages/        Landing、Room、Replay
-  features/     room（会话/连接）· editor（CodeMirror）· presence（在线成员）· canvas/replay 待填
-  lib/          roomCode、identity、env、ydoc（Y.Doc + UndoManager 装配）、provider（YProvider）
+  features/
+    room/       useRoomSession（连接、语言、撤销栈）· RoomHeader / RoomFooter / NotesPanel / StatusDot
+    editor/     CodeMirror 扩展、主题、语言、默认骨架、useSeedStarter
+    canvas/     Whiteboard（绘制/橡皮/多人光标）、ShapeNode、工具栏、快照
+    presence/   usePresence（在线成员）
+    timer/      useTimer、TimerControl
+    replay/     fetchReplayLog、frameAt（按 seq 重放）、ReplayCode、ReplayCanvas
+    export/     四种格式、另存为/降级下载
+  lib/          roomCode、identity、env、ydoc（Y.Doc + UndoManager）、provider（YProvider）
   components/   Button 等基础组件
 worker/
   index.ts      入口：/parties 交给 PartyServer，其余交给静态资源
-  Room.ts       Durable Object：一个房间一个实例
+  Room.ts       Durable Object：Yjs 副本 + update 日志 + 关键帧 + /replay 接口
 docs/
   LOG.md        每天做了什么 / 已验证 / 未验证
+  REFERENCE.md  同类项目调研与取舍
   shots/        截图
 scripts/
-  exec-shim.cjs 沙箱环境专用补丁
+  smoke-room.mjs  房间协议冒烟（双向同步 / 拉历史 / 断线重连）
+  room-peek.mjs   裸 WebSocket 读房间真实内容
+  add-shape.mjs   塞一个外部图元（验撤销隔离）
+  seed-shapes.mjs 批量塞 N 个图元（性能测试）
+  exec-shim.cjs   沙箱环境专用补丁
 ```
 
 ## 架构
@@ -136,6 +163,18 @@ scripts/
 4. 房间不设权限，知道链接就能进。
 5. 画板没有选择/拖动/缩放，画错了用橡皮（整块删）。
 6. 移动端能画但不好画，画板不是为手指精修设计的。
+7. 房间数据靠 Durable Object 的 `onSave` 惰性落盘（debounce 2–10 秒）；开发时直接杀进程，最后几秒的改动会丢。正式 Worker 正常关闭时不受影响，但这一点没有做压力验证。
+8. 回放记录的是协作期间的 Yjs update，最长保留 4000 条；超出后最旧的被丢弃，老房间的回放起点会落在第一条关键帧上。
+
+## 简历 bullet
+
+> **同屏 same-screen** — 一人一个链接的远程讲代码工具（React 19 + TypeScript + Yjs + Cloudflare Workers）
+>
+> - 实时协同：用 Yjs CRDT 做代码、笔记、画板图元的多人同步，`Y.Text` + CodeMirror 6 绑定，图元存在 `Y.Map` 里，光标走 Awareness，共享数据只有一份，不额外维护 React state。
+> - 服务端：单个 Cloudflare Worker 同时托管静态资源和 Durable Object 房间，`partyserver` + `y-partyserver` 承接 WebSocket 与文档持久化，同域部署免 CORS。
+> - 回放：在 Durable Object 里记录每条 update 与 30 秒/50 次关键帧，回放页用空 `Y.Doc` 按序 `applyUpdate` 还原任意时刻的代码与画板，支持 1x/2x/4x。
+> - 撤销隔离：`Y.UndoManager` 只跟踪本地 origin，CodeMirror 去掉自带 history，实测能只撤自己的输入。
+> - 细节：断线自动重连且不卸载编辑器（`everSynced` 守卫）、计时器只同步结束时间戳、画板 200 图元仍保持 60fps 以上。
 
 ## 以后可能做
 
@@ -151,7 +190,7 @@ scripts/
 | Day 3 | Konva 画板（笔/矩形/箭头/文字/橡皮）+ 撤销重做 | 完成 |
 | Day 4 | 多人光标、计时器、响应式 | 完成（页面拆分为 header/footer/notes/status，移动端顶栏不溢出） |
 | Day 5 | 事件日志 + 快照 + 回放页 | 完成（时间轴播放/暂停/1x/2x/4x，代码与画板都能还原） |
-| Day 6 | 断线重连、快捷键、移动端、部署 | 未开始 |
-| Day 7 | 双浏览器验收、性能、README、截图 | 未开始 |
+| Day 6 | 断线重连、快捷键、移动端、部署 | 完成（修了断线卸载编辑器的 bug；临时部署成功，公网被本机 DNS 干扰无法确证） |
+| Day 7 | 双浏览器验收、性能、README、截图 | 完成（两客户端同步 16 字内容一致；200 图元 p50 5.6ms，绘制 p95 22.3ms） |
 
 设计文档：[SPEC.md](./SPEC.md)（做什么）· [ARCHITECTURE.md](./ARCHITECTURE.md)（怎么做）· [AGENTS.md](./AGENTS.md)（硬约束）
