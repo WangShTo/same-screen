@@ -9,3 +9,6 @@ dist
 .env.local
 *.log
 .DS_Store
+
+# 本地 agent 技能（按工作区安装，不进仓库）
+.agents/
